@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CodeRAG — Codebase Q&A</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root {
+            --bg: #0d1117;
+            --surface: #161b22;
+            --border: #30363d;
+            --text: #e6edf3;
+            --text-muted: #8b949e;
+            --accent: #58a6ff;
+            --accent-hover: #79c0ff;
+            --success: #3fb950;
+            --code-bg: #1c2128;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        header {
+            background: var(--surface);
+            border-bottom: 1px solid var(--border);
+            padding: 1rem 2rem;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        header h1 {
+            font-size: 1.5rem;
+            font-weight: 600;
+        }
+
+        header h1 span { color: var(--accent); }
+
+        .badge {
+            background: var(--accent);
+            color: var(--bg);
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-weight: 600;
+        }
+
+        main {
+            flex: 1;
+            max-width: 900px;
+            width: 100%;
+            margin: 0 auto;
+            padding: 2rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        .ingest-section {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1.5rem;
+        }
+
+        .ingest-section h2 {
+            font-size: 1rem;
+            margin-bottom: 1rem;
+            color: var(--text-muted);
+        }
+
+        .ingest-form {
+            display: flex;
+            gap: 0.75rem;
+        }
+
+        input {
+            flex: 1;
+            background: var(--code-bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 0.75rem 1rem;
+            color: var(--text);
+            font-size: 0.9rem;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        input:focus { border-color: var(--accent); }
+        input::placeholder { color: var(--text-muted); }
+
+        button {
+            background: var(--accent);
+            color: var(--bg);
+            border: none;
+            border-radius: 8px;
+            padding: 0.75rem 1.5rem;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+            white-space: nowrap;
+        }
+
+        button:hover { background: var(--accent-hover); }
+        button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        .status {
+            margin-top: 0.75rem;
+            font-size: 0.85rem;
+            color: var(--text-muted);
+        }
+
+        .status.success { color: var(--success); }
+        .status.error { color: #f85149; }
+
+        .chat-section {
+            flex: 1;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            display: flex;
+            flex-direction: column;
+            min-height: 400px;
+        }
+
+        .chat-header {
+            padding: 1rem 1.5rem;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .chat-header select {
+            background: var(--code-bg);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 0.5rem;
+            color: var(--text);
+            font-size: 0.85rem;
+        }
+
+        .messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 1.5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .message {
+            max-width: 85%;
+            padding: 1rem;
+            border-radius: 12px;
+            font-size: 0.9rem;
+            line-height: 1.6;
+        }
+
+        .message.user {
+            align-self: flex-end;
+            background: var(--accent);
+            color: var(--bg);
+            border-bottom-right-radius: 4px;
+        }
+
+        .message.assistant {
+            align-self: flex-start;
+            background: var(--code-bg);
+            border: 1px solid var(--border);
+            border-bottom-left-radius: 4px;
+        }
+
+        .message.assistant pre {
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 0.75rem;
+            margin: 0.5rem 0;
+            overflow-x: auto;
+            font-size: 0.8rem;
+        }
+
+        .message.assistant code {
+            font-family: 'JetBrains Mono', 'Fira Code', monospace;
+        }
+
+        .sources {
+            margin-top: 0.75rem;
+            padding-top: 0.75rem;
+            border-top: 1px solid var(--border);
+        }
+
+        .sources summary {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            cursor: pointer;
+        }
+
+        .source-item {
+            font-size: 0.75rem;
+            color: var(--accent);
+            margin-top: 0.25rem;
+            font-family: monospace;
+        }
+
+        .chat-input {
+            padding: 1rem 1.5rem;
+            border-top: 1px solid var(--border);
+            display: flex;
+            gap: 0.75rem;
+        }
+
+        .chat-input input { border-radius: 20px; }
+
+        .loading {
+            display: inline-flex;
+            gap: 4px;
+            padding: 0.5rem 0;
+        }
+
+        .loading span {
+            width: 8px;
+            height: 8px;
+            background: var(--accent);
+            border-radius: 50%;
+            animation: bounce 1.4s infinite;
+        }
+
+        .loading span:nth-child(2) { animation-delay: 0.2s; }
+        .loading span:nth-child(3) { animation-delay: 0.4s; }
+
+        @keyframes bounce {
+            0%, 80%, 100% { transform: translateY(0); }
+            40% { transform: translateY(-8px); }
+        }
+
+        .empty-state {
+            text-align: center;
+            color: var(--text-muted);
+            padding: 3rem;
+        }
+
+        .empty-state p { margin-top: 0.5rem; font-size: 0.9rem; }
+    </style>
+</head>
+<body>
+    <header>
+        <h1><span>&lt;/&gt;</span> CodeRAG</h1>
+        <span class="badge">RAG-Powered</span>
+    </header>
+
+    <main>
+        <section class="ingest-section">
+            <h2>Index a Repository</h2>
+            <div class="ingest-form">
+                <input type="text" id="repoUrl" placeholder="https://github.com/user/repo" />
+                <button id="ingestBtn" onclick="ingestRepo()">Index</button>
+            </div>
+            <div id="ingestStatus" class="status"></div>
+        </section>
+
+        <section class="chat-section">
+            <div class="chat-header">
+                <span style="color: var(--text-muted); font-size: 0.9rem;">Ask about:</span>
+                <select id="repoSelect">
+                    <option value="">Select a repository...</option>
+                </select>
+                <button onclick="loadRepos()" style="padding: 0.5rem 1rem; font-size: 0.8rem;">Refresh</button>
+            </div>
+
+            <div class="messages" id="messages">
+                <div class="empty-state">
+                    <h3>No messages yet</h3>
+                    <p>Index a repo above, then ask questions about the code.</p>
+                </div>
+            </div>
+
+            <div class="chat-input">
+                <input type="text" id="queryInput" placeholder="How does authentication work?" onkeydown="if(event.key==='Enter')askQuestion()" />
+                <button onclick="askQuestion()">Ask</button>
+            </div>
+        </section>
+    </main>
+
+    <script>
+        const API = window.location.origin;
+
+        async function loadRepos() {
+            try {
+                const res = await fetch(`${API}/api/repos`);
+                const data = await res.json();
+                const select = document.getElementById('repoSelect');
+                const current = select.value;
+                select.innerHTML = '<option value="">Select a repository...</option>';
+                data.repositories.forEach(repo => {
+                    const opt = document.createElement('option');
+                    opt.value = repo;
+                    opt.textContent = repo;
+                    select.appendChild(opt);
+                });
+                if (current) select.value = current;
+            } catch (e) {
+                console.error('Failed to load repos:', e);
+            }
+        }
+
+        async function ingestRepo() {
+            const url = document.getElementById('repoUrl').value.trim();
+            if (!url) return;
+
+            const btn = document.getElementById('ingestBtn');
+            const status = document.getElementById('ingestStatus');
+
+            btn.disabled = true;
+            btn.textContent = 'Indexing...';
+            status.className = 'status';
+            status.textContent = 'Cloning and indexing repository...';
+
+            try {
+                const res = await fetch(`${API}/api/ingest`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ repo_url: url }),
+                });
+
+                if (!res.ok) {
+                    const err = await res.json();
+                    throw new Error(err.detail || 'Ingestion failed');
+                }
+
+                const data = await res.json();
+                status.className = 'status success';
+                status.textContent = `Indexed "${data.repo_name}": ${data.files_indexed} files, ${data.chunks_created} chunks`;
+                loadRepos();
+            } catch (e) {
+                status.className = 'status error';
+                status.textContent = `Error: ${e.message}`;
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Index';
+            }
+        }
+
+        async function askQuestion() {
+            const input = document.getElementById('queryInput');
+            const question = input.value.trim();
+            const repoName = document.getElementById('repoSelect').value;
+
+            if (!question || !repoName) {
+                if (!repoName) alert('Please select a repository first.');
+                return;
+            }
+
+            const messages = document.getElementById('messages');
+            if (messages.querySelector('.empty-state')) {
+                messages.innerHTML = '';
+            }
+
+            // Add user message
+            const userMsg = document.createElement('div');
+            userMsg.className = 'message user';
+            userMsg.textContent = question;
+            messages.appendChild(userMsg);
+
+            // Add loading indicator
+            const loading = document.createElement('div');
+            loading.className = 'message assistant';
+            loading.innerHTML = '<div class="loading"><span></span><span></span><span></span></div>';
+            messages.appendChild(loading);
+            messages.scrollTop = messages.scrollHeight;
+
+            input.value = '';
+
+            try {
+                const res = await fetch(`${API}/api/query`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ question, repo_name: repoName, top_k: 5 }),
+                });
+
+                if (!res.ok) {
+                    const err = await res.json();
+                    throw new Error(err.detail || 'Query failed');
+                }
+
+                const data = await res.json();
+
+                loading.innerHTML = formatAnswer(data);
+            } catch (e) {
+                loading.innerHTML = `<span style="color: #f85149;">Error: ${e.message}</span>`;
+            }
+
+            messages.scrollTop = messages.scrollHeight;
+        }
+
+        function formatAnswer(data) {
+            let html = data.answer
+                .replace(/```(\w*)\n([\s\S]*?)```/g, '<pre><code>$2</code></pre>')
+                .replace(/`([^`]+)`/g, '<code>$1</code>')
+                .replace(/\n/g, '<br>');
+
+            if (data.sources && data.sources.length > 0) {
+                html += '<div class="sources"><details><summary>Sources (' + data.sources.length + ' chunks, confidence: ' + (data.confidence * 100).toFixed(0) + '%)</summary>';
+                data.sources.forEach(s => {
+                    html += `<div class="source-item">${s.file_path}:${s.start_line}-${s.end_line} (relevance: ${(s.relevance_score * 100).toFixed(0)}%)</div>`;
+                });
+                html += '</details></div>';
+            }
+
+            return html;
+        }
+
+        // Load repos on page load
+        loadRepos();
+    </script>
+</body>
+</html>

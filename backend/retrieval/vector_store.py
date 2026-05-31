@@ -1,0 +1,121 @@
+"""Vector store using ChromaDB with hybrid search capabilities."""
+
+import hashlib
+from typing import Optional
+
+import chromadb
+from chromadb.config import Settings
+
+from backend.ingestion.chunker import CodeChunk
+
+
+class VectorStore:
+    """ChromaDB-backed vector store with metadata filtering."""
+
+    def __init__(self, persist_dir: str = "./chroma_data"):
+        self.client = chromadb.PersistentClient(
+            path=persist_dir,
+            settings=Settings(anonymized_telemetry=False),
+        )
+
+    def get_or_create_collection(self, repo_name: str) -> chromadb.Collection:
+        safe_name = repo_name.replace("-", "_").replace(".", "_")[:60]
+        return self.client.get_or_create_collection(
+            name=safe_name,
+            metadata={"hnsw:space": "cosine"},
+        )
+
+    def index_chunks(self, repo_name: str, chunks: list[CodeChunk]) -> int:
+        collection = self.get_or_create_collection(repo_name)
+
+        documents = []
+        metadatas = []
+        ids = []
+
+        for chunk in chunks:
+            doc_text = self._format_chunk_for_embedding(chunk)
+            doc_id = hashlib.md5(
+                f"{chunk.file_path}:{chunk.start_line}:{chunk.content[:100]}".encode()
+            ).hexdigest()
+
+            documents.append(doc_text)
+            metadatas.append({
+                "file_path": chunk.file_path,
+                "start_line": chunk.start_line,
+                "end_line": chunk.end_line,
+                "chunk_type": chunk.chunk_type,
+                "symbols": ",".join(chunk.symbols),
+                "language": chunk.language,
+            })
+            ids.append(doc_id)
+
+        batch_size = 100
+        for i in range(0, len(documents), batch_size):
+            collection.upsert(
+                documents=documents[i : i + batch_size],
+                metadatas=metadatas[i : i + batch_size],
+                ids=ids[i : i + batch_size],
+            )
+
+        return len(documents)
+
+    def search(
+        self,
+        repo_name: str,
+        query: str,
+        top_k: int = 5,
+        file_filter: Optional[str] = None,
+        chunk_type_filter: Optional[str] = None,
+    ) -> list[dict]:
+        collection = self.get_or_create_collection(repo_name)
+
+        where_filter = None
+        conditions = []
+        if file_filter:
+            conditions.append({"file_path": {"$contains": file_filter}})
+        if chunk_type_filter:
+            conditions.append({"chunk_type": chunk_type_filter})
+
+        if len(conditions) == 1:
+            where_filter = conditions[0]
+        elif len(conditions) > 1:
+            where_filter = {"$and": conditions}
+
+        results = collection.query(
+            query_texts=[query],
+            n_results=top_k,
+            where=where_filter,
+            include=["documents", "metadatas", "distances"],
+        )
+
+        search_results = []
+        if results["documents"] and results["documents"][0]:
+            for doc, meta, distance in zip(
+                results["documents"][0],
+                results["metadatas"][0],
+                results["distances"][0],
+            ):
+                relevance = 1 - distance
+                search_results.append({
+                    "content": doc,
+                    "metadata": meta,
+                    "relevance_score": round(max(0, relevance), 4),
+                })
+
+        return search_results
+
+    def delete_collection(self, repo_name: str):
+        safe_name = repo_name.replace("-", "_").replace(".", "_")[:60]
+        try:
+            self.client.delete_collection(safe_name)
+        except ValueError:
+            pass
+
+    def list_collections(self) -> list[str]:
+        return [col.name for col in self.client.list_collections()]
+
+    def _format_chunk_for_embedding(self, chunk: CodeChunk) -> str:
+        header = f"File: {chunk.file_path} | Type: {chunk.chunk_type}"
+        if chunk.symbols:
+            header += f" | Symbols: {', '.join(chunk.symbols[:5])}"
+        return f"{header}\n\n{chunk.content}"
