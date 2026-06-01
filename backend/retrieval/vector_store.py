@@ -1,55 +1,31 @@
 """Vector store using ChromaDB with Gemini API embeddings (no local ONNX model)."""
 
 import hashlib
-import json
 import os
-import urllib.request
-import urllib.error
 from typing import Optional
 
 import chromadb
 from chromadb.config import Settings
 from chromadb import Documents, EmbeddingFunction, Embeddings
+import google.generativeai as genai
 
 from backend.ingestion.chunker import CodeChunk
 
 
 class GeminiEmbeddingFunction(EmbeddingFunction):
-    """Compute embeddings via Gemini API instead of loading a local ONNX model."""
+    """Compute embeddings via Gemini SDK instead of loading a local ONNX model."""
 
-    def __init__(self, api_key: str, model: str = "embedding-001"):
-        self.api_key = api_key
-        self.model = model
+    def __init__(self, api_key: str):
+        genai.configure(api_key=api_key)
 
     def __call__(self, input: Documents) -> Embeddings:
         all_embeddings = []
-        url = (
-            f"https://generativelanguage.googleapis.com/v1beta/models/"
-            f"{self.model}:embedContent?key={self.api_key}"
-        )
-
         for text in input:
-            payload = {
-                "content": {"parts": [{"text": text}]},
-            }
-
-            req = urllib.request.Request(
-                url,
-                data=json.dumps(payload).encode("utf-8"),
-                headers={"Content-Type": "application/json"},
-                method="POST",
+            result = genai.embed_content(
+                model="models/text-embedding-004",
+                content=text,
             )
-
-            try:
-                with urllib.request.urlopen(req, timeout=60) as resp:
-                    result = json.loads(resp.read().decode("utf-8"))
-                all_embeddings.append(result["embedding"]["values"])
-            except urllib.error.HTTPError as e:
-                error_body = e.read().decode("utf-8")
-                raise RuntimeError(
-                    f"Gemini Embedding API error ({e.code}): {error_body}"
-                )
-
+            all_embeddings.append(result["embedding"])
         return all_embeddings
 
 
