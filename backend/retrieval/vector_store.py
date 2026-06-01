@@ -17,18 +17,19 @@ from backend.ingestion.chunker import CodeChunk
 class GeminiEmbeddingFunction(EmbeddingFunction):
     """Compute embeddings via Gemini API instead of loading a local ONNX model."""
 
-    def __init__(self, api_key: str, model: str = "text-embedding-004"):
+    def __init__(self, api_key: str, model: str = "embedding-001"):
         self.api_key = api_key
         self.model = model
-        self.base_url = "https://generativelanguage.googleapis.com/v1/models"
 
     def __call__(self, input: Documents) -> Embeddings:
         all_embeddings = []
+        url = (
+            f"https://generativelanguage.googleapis.com/v1beta/models/"
+            f"{self.model}:embedContent?key={self.api_key}"
+        )
 
         for text in input:
-            url = f"{self.base_url}/{self.model}:embedContent?key={self.api_key}"
             payload = {
-                "model": f"models/{self.model}",
                 "content": {"parts": [{"text": text}]},
             }
 
