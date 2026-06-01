@@ -499,8 +499,10 @@
 
             try {
                 const res = await fetch(`${API}/api/ingest`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({repo_url:url}) });
-                if (!res.ok) { const err = await res.json(); throw new Error(err.detail); }
-                const data = await res.json();
+                const text = await res.text();
+                let data;
+                try { data = JSON.parse(text); } catch { throw new Error(text || `Server error (${res.status})`); }
+                if (!res.ok) throw new Error(data.detail || `Error ${res.status}`);
                 status.className = 'ingest-status visible success';
                 status.textContent = `${data.files_indexed} files, ${data.chunks_created} chunks`;
                 selectRepo(data.repo_name);
@@ -546,7 +548,12 @@
                     body: JSON.stringify({question, repo_name: activeRepo, top_k: 5}),
                 });
 
-                if (!res.ok) { const err = await res.json(); throw new Error(err.detail || 'Query failed'); }
+                if (!res.ok) {
+                    const errText = await res.text();
+                    let msg = `Error ${res.status}`;
+                    try { msg = JSON.parse(errText).detail || msg; } catch {}
+                    throw new Error(msg);
+                }
 
                 const reader = res.body.getReader();
                 const decoder = new TextDecoder();
