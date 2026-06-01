@@ -17,6 +17,7 @@ class QueryRequest(BaseModel):
     question: str = Field(description="Natural language question about the codebase")
     repo_name: str = Field(description="Name of the indexed repository")
     top_k: int = Field(default=5, ge=1, le=20, description="Number of chunks to retrieve")
+    stream: bool = Field(default=False, description="Enable streaming response")
 
 
 class QueryResponse(BaseModel):

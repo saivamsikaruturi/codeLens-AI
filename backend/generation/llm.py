@@ -1,8 +1,9 @@
-"""LLM generation layer using Google Gemini API with structured prompts."""
+"""LLM generation layer using Google Gemini API with streaming support."""
 
 import json
 import urllib.request
 import urllib.error
+from collections.abc import Generator
 
 SYSTEM_PROMPT = """You are CodeLens AI, an expert code analysis assistant. You answer questions about codebases using retrieved source code chunks as context.
 
@@ -99,6 +100,61 @@ class CodeLensGenerator:
             "sources": sources,
             "confidence": round(min(avg_relevance * 1.2, 1.0), 3),
         }
+
+    def generate_stream(
+        self,
+        question: str,
+        retrieved_chunks: list[dict],
+        max_tokens: int = 2048,
+    ) -> Generator[str, None, None]:
+        """Stream response tokens from Gemini API via SSE."""
+        context = self._format_context(retrieved_chunks)
+        user_message = QUERY_TEMPLATE.format(context=context, question=question)
+
+        url = f"{self.base_url}/{self.model}:streamGenerateContent?alt=sse&key={self.api_key}"
+
+        payload = {
+            "contents": [
+                {
+                    "parts": [
+                        {"text": f"{SYSTEM_PROMPT}\n\n{user_message}"}
+                    ]
+                }
+            ],
+            "generationConfig": {
+                "maxOutputTokens": max_tokens,
+                "temperature": 0.3,
+            },
+        }
+
+        req = urllib.request.Request(
+            url,
+            data=json.dumps(payload).encode("utf-8"),
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+
+        try:
+            resp = urllib.request.urlopen(req, timeout=60)
+        except urllib.error.HTTPError as e:
+            error_body = e.read().decode("utf-8")
+            raise RuntimeError(f"Gemini API error ({e.code}): {error_body}")
+
+        buffer = ""
+        for line in resp:
+            decoded = line.decode("utf-8").strip()
+            if decoded.startswith("data: "):
+                json_str = decoded[6:]
+                try:
+                    chunk_data = json.loads(json_str)
+                    parts = chunk_data.get("candidates", [{}])[0].get("content", {}).get("parts", [])
+                    for part in parts:
+                        if "text" in part:
+                            yield part["text"]
+                except (json.JSONDecodeError, IndexError, KeyError):
+                    continue
+
+        resp.close()
 
     def _format_context(self, chunks: list[dict]) -> str:
         formatted = []
