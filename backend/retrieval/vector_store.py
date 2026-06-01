@@ -22,7 +22,7 @@ class GeminiEmbeddingFunction(EmbeddingFunction):
         all_embeddings = []
         for text in input:
             result = genai.embed_content(
-                model="models/text-embedding-004",
+                model="models/gemini-embedding-001",
                 content=text,
             )
             all_embeddings.append(result["embedding"])
@@ -134,7 +134,7 @@ class VectorStore:
             pass
 
     def list_collections(self) -> list[str]:
-        return [col.name for col in self.client.list_collections()]
+        return list(self.client.list_collections())
 
     def _format_chunk_for_embedding(self, chunk: CodeChunk) -> str:
         header = f"File: {chunk.file_path} | Type: {chunk.chunk_type}"
