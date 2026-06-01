@@ -1,16 +1,16 @@
 services:
   - type: web
     name: codelens-ai
-    runtime: python
-    buildCommand: pip install -r requirements.txt
-    startCommand: uvicorn backend.app:app --host 0.0.0.0 --port $PORT
+    runtime: docker
     envVars:
       - key: GEMINI_API_KEY
         sync: false
-      - key: PYTHON_VERSION
-        value: 3.12.3
       - key: TOKENIZERS_PARALLELISM
         value: "false"
+      - key: ANONYMIZED_TELEMETRY
+        value: "false"
+      - key: CHROMA_DATA_DIR
+        value: /opt/render/project/src/chroma_data
     disk:
       name: chroma-data
       mountPath: /opt/render/project/src/chroma_data
