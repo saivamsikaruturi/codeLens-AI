@@ -32,7 +32,8 @@ from backend.retrieval.file_tree import build_file_tree
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    app.state.vector_store = VectorStore(persist_dir="./chroma_data")
+    chroma_dir = os.environ.get("CHROMA_DATA_DIR", "./chroma_data")
+    app.state.vector_store = VectorStore(persist_dir=chroma_dir)
     app.state.github_loader = GitHubLoader()
     app.state.query_history = []
     app.state.metrics = defaultdict(lambda: {
