@@ -1,29 +1,76 @@
-"""Vector store using ChromaDB with hybrid search capabilities."""
+"""Vector store using ChromaDB with Gemini API embeddings (no local ONNX model)."""
 
 import hashlib
+import json
+import os
+import urllib.request
+import urllib.error
 from typing import Optional
 
 import chromadb
 from chromadb.config import Settings
+from chromadb import Documents, EmbeddingFunction, Embeddings
 
 from backend.ingestion.chunker import CodeChunk
 
 
+class GeminiEmbeddingFunction(EmbeddingFunction):
+    """Compute embeddings via Gemini API instead of loading a local ONNX model."""
+
+    def __init__(self, api_key: str, model: str = "text-embedding-004"):
+        self.api_key = api_key
+        self.model = model
+        self.url = (
+            f"https://generativelanguage.googleapis.com/v1beta/models/{model}:batchEmbedContents"
+            f"?key={api_key}"
+        )
+
+    def __call__(self, input: Documents) -> Embeddings:
+        batch_size = 100
+        all_embeddings = []
+
+        for i in range(0, len(input), batch_size):
+            batch = input[i : i + batch_size]
+            payload = {
+                "requests": [
+                    {"model": f"models/{self.model}", "content": {"parts": [{"text": text}]}}
+                    for text in batch
+                ]
+            }
+
+            req = urllib.request.Request(
+                self.url,
+                data=json.dumps(payload).encode("utf-8"),
+                headers={"Content-Type": "application/json"},
+                method="POST",
+            )
+
+            with urllib.request.urlopen(req, timeout=60) as resp:
+                result = json.loads(resp.read().decode("utf-8"))
+
+            for embedding in result["embeddings"]:
+                all_embeddings.append(embedding["values"])
+
+        return all_embeddings
+
+
 class VectorStore:
-    """ChromaDB-backed vector store with metadata filtering."""
+    """ChromaDB-backed vector store with Gemini API embeddings."""
 
     def __init__(self, persist_dir: str = "./chroma_data"):
         self.client = chromadb.PersistentClient(
             path=persist_dir,
             settings=Settings(anonymized_telemetry=False),
         )
+        api_key = os.environ.get("GEMINI_API_KEY", "")
+        self.embedding_fn = GeminiEmbeddingFunction(api_key=api_key) if api_key else None
 
     def get_or_create_collection(self, repo_name: str) -> chromadb.Collection:
         safe_name = repo_name.replace("-", "_").replace(".", "_")[:60]
-        return self.client.get_or_create_collection(
-            name=safe_name,
-            metadata={"hnsw:space": "cosine"},
-        )
+        kwargs = {"name": safe_name, "metadata": {"hnsw:space": "cosine"}}
+        if self.embedding_fn:
+            kwargs["embedding_function"] = self.embedding_fn
+        return self.client.get_or_create_collection(**kwargs)
 
     def index_chunks(self, repo_name: str, chunks: list[CodeChunk]) -> int:
         collection = self.get_or_create_collection(repo_name)
