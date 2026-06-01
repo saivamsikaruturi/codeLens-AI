@@ -20,36 +20,34 @@ class GeminiEmbeddingFunction(EmbeddingFunction):
     def __init__(self, api_key: str, model: str = "text-embedding-004"):
         self.api_key = api_key
         self.model = model
-        self.url = (
-            f"https://generativelanguage.googleapis.com/v1beta/models/{model}:batchEmbedContents"
-            f"?key={api_key}"
-        )
+        self.base_url = "https://generativelanguage.googleapis.com/v1beta/models"
 
     def __call__(self, input: Documents) -> Embeddings:
-        batch_size = 100
         all_embeddings = []
 
-        for i in range(0, len(input), batch_size):
-            batch = input[i : i + batch_size]
+        for text in input:
+            url = f"{self.base_url}/{self.model}:embedContent?key={self.api_key}"
             payload = {
-                "requests": [
-                    {"model": f"models/{self.model}", "content": {"parts": [{"text": text}]}}
-                    for text in batch
-                ]
+                "model": f"models/{self.model}",
+                "content": {"parts": [{"text": text}]},
             }
 
             req = urllib.request.Request(
-                self.url,
+                url,
                 data=json.dumps(payload).encode("utf-8"),
                 headers={"Content-Type": "application/json"},
                 method="POST",
             )
 
-            with urllib.request.urlopen(req, timeout=60) as resp:
-                result = json.loads(resp.read().decode("utf-8"))
-
-            for embedding in result["embeddings"]:
-                all_embeddings.append(embedding["values"])
+            try:
+                with urllib.request.urlopen(req, timeout=60) as resp:
+                    result = json.loads(resp.read().decode("utf-8"))
+                all_embeddings.append(result["embedding"]["values"])
+            except urllib.error.HTTPError as e:
+                error_body = e.read().decode("utf-8")
+                raise RuntimeError(
+                    f"Gemini Embedding API error ({e.code}): {error_body}"
+                )
 
         return all_embeddings
 
