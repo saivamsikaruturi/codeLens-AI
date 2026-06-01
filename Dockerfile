@@ -9,7 +9,6 @@ RUN apt-get update && apt-get install -y git && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt && \
-    pip uninstall -y onnxruntime tokenizers torch && \
     rm -rf /root/.cache
 
 COPY . .
