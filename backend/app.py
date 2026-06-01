@@ -313,10 +313,19 @@ async def get_metrics():
 
 
 # Serve frontend
-frontend_dir = os.path.join(os.path.dirname(__file__), "..", "frontend")
-if os.path.exists(frontend_dir):
-    app.mount("/static", StaticFiles(directory=frontend_dir), name="frontend")
+frontend_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "frontend")
+frontend_dir = os.path.normpath(frontend_dir)
 
-    @app.get("/")
-    async def serve_frontend():
-        return FileResponse(os.path.join(frontend_dir, "index.html"))
+
+@app.get("/")
+async def serve_frontend():
+    index_path = os.path.join(frontend_dir, "index.html")
+    if os.path.exists(index_path):
+        return FileResponse(index_path)
+    return {"status": "CodeLens AI API is running", "docs": "/docs"}
+
+
+@app.head("/")
+async def health_check():
+    from fastapi.responses import Response
+    return Response(status_code=200)
