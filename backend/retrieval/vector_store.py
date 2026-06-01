@@ -20,7 +20,7 @@ class GeminiEmbeddingFunction(EmbeddingFunction):
     def __init__(self, api_key: str, model: str = "text-embedding-004"):
         self.api_key = api_key
         self.model = model
-        self.base_url = "https://generativelanguage.googleapis.com/v1beta/models"
+        self.base_url = "https://generativelanguage.googleapis.com/v1/models"
 
     def __call__(self, input: Documents) -> Embeddings:
         all_embeddings = []
