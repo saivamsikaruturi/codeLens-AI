@@ -1,15 +1,15 @@
-# CodeRAG — Intelligent Codebase Q&A
+# CodeLens AI — Intelligent Codebase Q&A
 
 > Point at any GitHub repo. Ask questions in plain English. Get accurate, cited answers.
 
-CodeRAG uses Retrieval-Augmented Generation (RAG) with **AST-aware code chunking** to provide intelligent answers about any codebase. Unlike naive text-splitting approaches, it understands code structure — keeping functions, classes, and imports as semantic units.
+CodeLens AI uses Retrieval-Augmented Generation (RAG) with **AST-aware code chunking** to provide intelligent answers about any codebase. Unlike naive text-splitting approaches, it understands code structure — keeping functions, classes, and imports as semantic units.
 
 ## Architecture
 
 ```
 GitHub Repo → Clone → AST Parse → Chunk → Embed → ChromaDB
                                                       ↓
-User Query → Embed → Vector Search → Top-K Chunks → Claude API → Cited Answer
+User Query → Embed → Vector Search → Top-K Chunks → Gemini LLM → Cited Answer
 ```
 
 ### Key Design Decisions
@@ -19,7 +19,7 @@ User Query → Embed → Vector Search → Top-K Chunks → Claude API → Cited
 | AST-aware chunking | Preserves semantic boundaries (functions, classes) instead of splitting mid-logic |
 | Metadata-rich indexing | Enables filtering by file path, symbol name, chunk type |
 | ChromaDB (local) | Zero-config vector store, no external dependencies for dev |
-| Claude API | 200K context window handles large code contexts; strong code reasoning |
+| Gemini 2.5 Flash | Free tier, fast, excellent code reasoning |
 | FastAPI | Async, auto-documented API with Pydantic validation |
 
 ## Features
@@ -35,16 +35,16 @@ User Query → Embed → Vector Search → Top-K Chunks → Claude API → Cited
 
 ```bash
 # Clone
-git clone https://github.com/YOUR_USERNAME/coderag.git
-cd coderag
+git clone https://github.com/saivamsikaruturi/codelens-ai.git
+cd codelens-ai
 
 # Setup
-python -m venv .venv
+python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 
-# Configure
-export ANTHROPIC_API_KEY=your-key-here
+# Configure (get free key from https://aistudio.google.com/apikey)
+echo "GEMINI_API_KEY=your-key" > .env
 
 # Run
 uvicorn backend.app:app --reload --port 8000
@@ -66,7 +66,7 @@ Open http://localhost:8000 — paste a GitHub URL, click Index, then ask questio
 After indexing a repo, try:
 - "How does the authentication middleware work?"
 - "What design patterns are used in this project?"
-- "Explain the data flow from API request to database"
+- "Explain the data flow from API request to response"
 - "Where are environment variables configured?"
 - "What are the main dependencies and why?"
 
@@ -80,14 +80,14 @@ pytest -v
 ## Docker
 
 ```bash
-docker build -t coderag .
-docker run -p 8000:8000 -e ANTHROPIC_API_KEY=your-key coderag
+docker build -t codelens-ai .
+docker run -p 8000:8000 -e GEMINI_API_KEY=your-key codelens-ai
 ```
 
 ## Tech Stack
 
 - **Backend**: Python 3.12, FastAPI, Pydantic
-- **LLM**: Claude API (Anthropic)
+- **LLM**: Google Gemini 2.5 Flash (free tier)
 - **Vector Store**: ChromaDB (embedded, persistent)
 - **Chunking**: Python AST + language-aware line splitting
 - **Frontend**: Vanilla HTML/CSS/JS (no build step)
@@ -96,7 +96,7 @@ docker run -p 8000:8000 -e ANTHROPIC_API_KEY=your-key coderag
 ## Project Structure
 
 ```
-coderag/
+codelens-ai/
 ├── backend/
 │   ├── app.py              # FastAPI application & routes
 │   ├── ingestion/
@@ -105,7 +105,7 @@ coderag/
 │   ├── retrieval/
 │   │   └── vector_store.py # ChromaDB vector search
 │   ├── generation/
-│   │   └── llm.py          # Claude API integration
+│   │   └── llm.py          # Gemini API integration
 │   └── models/
 │       └── schemas.py      # Pydantic request/response models
 ├── frontend/

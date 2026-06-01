@@ -1,4 +1,4 @@
-"""FastAPI application for CodeRAG — Codebase Q&A powered by RAG."""
+"""FastAPI application for CodeLens AI — Intelligent Codebase Q&A powered by RAG."""
 
 import os
 from contextlib import asynccontextmanager
@@ -13,7 +13,7 @@ from fastapi.responses import FileResponse
 
 from backend.ingestion.chunker import chunk_repository
 from backend.ingestion.github_loader import GitHubLoader
-from backend.generation.llm import CodeRAGGenerator
+from backend.generation.llm import CodeLensGenerator
 from backend.models.schemas import (
     IngestRequest,
     IngestResponse,
@@ -31,7 +31,7 @@ async def lifespan(app: FastAPI):
 
     api_key = os.environ.get("GEMINI_API_KEY", "")
     if api_key:
-        app.state.generator = CodeRAGGenerator(api_key=api_key)
+        app.state.generator = CodeLensGenerator(api_key=api_key)
     else:
         app.state.generator = None
 
@@ -39,7 +39,7 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="CodeRAG",
+    title="CodeLens AI",
     description="Intelligent Codebase Q&A powered by RAG with AST-aware chunking",
     version="1.0.0",
     lifespan=lifespan,
@@ -83,7 +83,7 @@ async def ingest_repository(request: IngestRequest):
 @app.post("/api/query", response_model=QueryResponse)
 async def query_codebase(request: QueryRequest):
     """Ask a question about an indexed codebase."""
-    generator: CodeRAGGenerator | None = app.state.generator
+    generator: CodeLensGenerator | None = app.state.generator
     if not generator:
         raise HTTPException(
             status_code=503,

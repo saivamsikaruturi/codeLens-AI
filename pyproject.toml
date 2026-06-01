@@ -1,5 +1,5 @@
 [project]
-name = "coderag"
+name = "codelens-ai"
 version = "1.0.0"
 description = "Intelligent Codebase Q&A powered by RAG with AST-aware chunking"
 requires-python = ">=3.11"

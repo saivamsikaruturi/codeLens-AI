@@ -9,7 +9,7 @@ from pathlib import Path
 class GitHubLoader:
     """Clone and manage GitHub repositories for indexing."""
 
-    def __init__(self, storage_dir: str = "/tmp/coderag_repos"):
+    def __init__(self, storage_dir: str = "/tmp/codelens_repos"):
         self.storage_dir = Path(storage_dir)
         self.storage_dir.mkdir(parents=True, exist_ok=True)
 

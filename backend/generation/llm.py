@@ -4,7 +4,7 @@ import json
 import urllib.request
 import urllib.error
 
-SYSTEM_PROMPT = """You are CodeRAG, an expert code analysis assistant. You answer questions about codebases using retrieved source code chunks as context.
+SYSTEM_PROMPT = """You are CodeLens AI, an expert code analysis assistant. You answer questions about codebases using retrieved source code chunks as context.
 
 Rules:
 1. ONLY answer based on the provided code context. If the context doesn't contain enough information, say so.
@@ -28,7 +28,7 @@ QUERY_TEMPLATE = """## Retrieved Code Context
 Provide a clear, detailed answer based on the code context above. Reference specific files and line numbers."""
 
 
-class CodeRAGGenerator:
+class CodeLensGenerator:
     """Generates answers using Google Gemini API with retrieved code context."""
 
     def __init__(self, api_key: str, model: str = "gemini-2.5-flash"):

@@ -11,4 +11,6 @@ COPY . .
 
 EXPOSE 8000
 
+ENV TOKENIZERS_PARALLELISM=false
+
 CMD ["uvicorn", "backend.app:app", "--host", "0.0.0.0", "--port", "8000"]
